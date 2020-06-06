@@ -81,7 +81,7 @@ void getBooksFromDirectory()
         {
             string line;
             Book book;
-            while (file >> line)
+            while (getline(file, line))
             {
                 if (line.find("Title") != std::string::npos)
                 {
@@ -108,7 +108,7 @@ void getBooksFromDirectory()
                     string review = line.substr(line.find(":") + 1);
                     while (getline(file, line))
                     {
-                        review += line;
+                        review += "\n" + line;
                     }
                     book.SetReview(review);
                 }
