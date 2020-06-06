@@ -3,6 +3,7 @@
 #include <fstream>
 #include "Book.h"
 #include <atlstr.h>
+#undef MessageBox
 std::vector<Book> books;
 int position = 0;
 
@@ -19,8 +20,8 @@ int main()
     tgui::Gui gui{ window }; // Create the gui and attach it to the window
     tgui::Theme theme{ "Themes/Black.txt" };
     tgui::Theme::setDefault(&theme);
-    init(gui);
     getBooksFromDirectory();
+    init(gui);
 
     sf::Texture texture;
     texture.loadFromFile("Images/background1.jpg");
@@ -52,6 +53,13 @@ int main()
 
 void saveBooksInDirectory() 
 {
+    //delete all files in directory before saving them again
+    vector<string> files = getFiles("Data/");
+    for (auto fileName : files)
+    {
+        const int result = remove(fileName.c_str());
+    }
+
     for (auto &book : books)
     {
         ofstream file("Data/" + book.GetTitle() + ".txt");
@@ -60,10 +68,7 @@ void saveBooksInDirectory()
         file << "Pages:" + book.GetPages() << endl;
         file << "ISBN:" + book.GetISBN() << endl;
         file << "Review:" + book.GetReview() << endl;
-
     }
-   
-
 }
 
 void getBooksFromDirectory() 
@@ -116,31 +121,37 @@ void getBooksFromDirectory()
 
 void SetNextBook(tgui::EditBox::Ptr title, tgui::EditBox::Ptr author, tgui::EditBox::Ptr pages, tgui::EditBox::Ptr isbn, tgui::TextBox::Ptr review)
 {
-    if(position < books.size() - 1)
+    if ((position < books.size() - 1) && books.size() > 0)
+    {
         ++position;
+        title->setText(books[position].GetTitle());
+        author->setText(books[position].GetAuthor());
+        pages->setText(books[position].GetPages());
+        isbn->setText(books[position].GetISBN());
+        review->setText(books[position].GetReview());
+    }
     
-    title->setText(books[position].GetTitle());
-    author->setText(books[position].GetAuthor());
-    pages->setText(books[position].GetPages());
-    isbn->setText(books[position].GetISBN());
-    review->setText(books[position].GetReview());
-
+   
 
 }
 
 void SetPreviousBook(tgui::EditBox::Ptr title, tgui::EditBox::Ptr author, tgui::EditBox::Ptr pages, tgui::EditBox::Ptr isbn, tgui::TextBox::Ptr review)
 {
-    if(position > 0)
+    if (position > 0 && books.size() > 0)
+    {
         --position;
-    title->setText(books[position].GetTitle());
-    author->setText(books[position].GetAuthor());
-    pages->setText(books[position].GetPages());
-    isbn->setText(books[position].GetISBN());
-    review->setText(books[position].GetReview());
+        title->setText(books[position].GetTitle());
+        author->setText(books[position].GetAuthor());
+        pages->setText(books[position].GetPages());
+        isbn->setText(books[position].GetISBN());
+        review->setText(books[position].GetReview());
+    }
+  
+   
 
 }
 
-void AddBook(tgui::EditBox::Ptr title, tgui::EditBox::Ptr author, tgui::EditBox::Ptr pages, tgui::EditBox::Ptr isbn, tgui::TextBox::Ptr review)
+void AddBook(tgui::EditBox::Ptr title, tgui::EditBox::Ptr author, tgui::EditBox::Ptr pages, tgui::EditBox::Ptr isbn, tgui::TextBox::Ptr review, tgui::MessageBox::Ptr messageAdd)
 {
     Book book = Book();
     book.SetTitle(title->getText().toAnsiString());
@@ -150,14 +161,18 @@ void AddBook(tgui::EditBox::Ptr title, tgui::EditBox::Ptr author, tgui::EditBox:
     book.SetReview(review->getText().toAnsiString());
     books.push_back(book);
     position = books.size() - 1;
-}
+    messageAdd->setVisible(true);
+   }
 
-void DeleteBook(tgui::EditBox::Ptr title)
+void DeleteBook(tgui::EditBox::Ptr title, tgui::EditBox::Ptr author, tgui::EditBox::Ptr pages, tgui::EditBox::Ptr isbn, tgui::TextBox::Ptr review, tgui::MessageBox::Ptr messageDelete)
 {
     for (std::vector<Book>::iterator itr = books.begin(); itr != books.end(); )
     {
         if (itr->GetTitle() == title->getText().toAnsiString())
+        {
             itr = books.erase(itr);
+            messageDelete->setVisible(true);
+        }
         else
             ++itr;
     }
@@ -165,7 +180,6 @@ void DeleteBook(tgui::EditBox::Ptr title)
 
 void init(tgui::Gui &gui)
 {
-
     //Title
     tgui::Label::Ptr lblTitle = tgui::Label::create("Title");
     gui.add(lblTitle);
@@ -226,7 +240,19 @@ void init(tgui::Gui &gui)
     editReview->setSize("60%", "30%");
     editReview->setPosition("20%", "50%");
     
-    
+    //Create MessageBoxes
+    tgui::MessageBox::Ptr messageAdd = tgui::MessageBox::create("Add", "Book added successfully!", { "OK" });
+    messageAdd->setPosition("30%", "30%");
+    messageAdd->setVisible(false);
+    messageAdd->onButtonPress([=]() { messageAdd->setVisible(false); });
+    gui.add(messageAdd);
+
+    tgui::MessageBox::Ptr messageDelete = tgui::MessageBox::create("Delete", "Book deleted successfully!", { "OK" });
+    messageDelete->setPosition("30%", "30%");
+    messageDelete->setVisible(false);
+    messageDelete->onButtonPress([=]() { messageDelete->setVisible(false); });
+    gui.add(messageDelete);
+
     //Buttons
     tgui::Button::Ptr btnNext = tgui::Button::create("Next");
     gui.add(btnNext);
@@ -242,16 +268,26 @@ void init(tgui::Gui &gui)
 
     tgui::Button::Ptr btnAdd = tgui::Button::create("Add");
     gui.add(btnAdd);
-    btnAdd->onPress(AddBook, editTitle, editAuthor, editPages, editISBN, editReview);
+    btnAdd->onPress(AddBook, editTitle, editAuthor, editPages, editISBN, editReview, messageAdd);
     btnAdd->setSize("10%", "5%");
     btnAdd->setPosition("50%", "90%");
 
     tgui::Button::Ptr btnDelete = tgui::Button::create("Delete");
     gui.add(btnDelete);
-    btnDelete->onPress(DeleteBook, editTitle);
+    btnDelete->onPress(DeleteBook, editTitle, editAuthor, editPages, editISBN, editReview, messageDelete);
     btnDelete->setSize("10%", "5%");
     btnDelete->setPosition("70%", "90%");
 
+   
+    //Add first book details if exists
+    if (books.size() > 0)
+    {
+        editTitle->setText(books[0].GetTitle());
+        editAuthor->setText(books[0].GetAuthor());
+        editPages->setText(books[0].GetPages());
+        editISBN->setText(books[0].GetISBN());
+        editReview->setText(books[0].GetReview());
+    }
 }
 
 vector<string> getFiles(CString directory)
